@@ -7,43 +7,45 @@ class RadioRiskApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Evaluación de Riesgo en Radioterapia")
-        self.root.geometry("500x600")
 
-        # Variables para almacenar datos
+        # Tamaño fijo para mantener relación de aspecto
+        self.ancho_fijo = 480
+        self.alto_fijo = 600
+        self.root.geometry(f"{self.ancho_fijo}x{self.alto_fijo}")
+        self.root.minsize(500, 650)
+
         self.datos_paciente = {}
-
+        self.entries = {}  # Aquí guardaremos las variables (StringVar, BooleanVar, etc.)
         self.create_main_menu()
 
     def create_main_menu(self):
-        # Limpiar ventana
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Label(self.root, text="Menú Principal", font=("Arial", 16, "bold"), pady=20).pack()
+        menu_container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
+        menu_container.place(relx=0.5, rely=0.5, anchor="center")
+        menu_container.pack_propagate(False)
 
-        btn_cargar = tk.Button(self.root, text="Cargar Paciente", width=25, height=2,
-                               command=self.cargar_archivo)
+        tk.Label(menu_container, text="Menú Principal", font=("Arial", 18, "bold")).pack(pady=50)
+        btn_cargar = tk.Button(menu_container, text="Cargar Paciente", width=25, height=2,
+                               command=self.cargar_archivo, font=("Arial", 10))
         btn_cargar.pack(pady=10)
-
 
     def cargar_archivo(self):
         filepath = filedialog.askopenfilename(
-            title="Seleccionar reporte de plan",
+            title="Seleccionar reporte",
             filetypes=[("Excel files", "*.xlsx *.xls")]
         )
-
         if filepath:
             try:
                 self.extraer_datos(filepath)
                 self.mostrar_detalles_paciente()
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo procesar el archivo: {e}")
+                messagebox.showerror("Error", f"Error: {e}")
 
     def extraer_datos(self, path):
-        # Leemos el excel sin cabecera para buscar por coordenadas de texto
         df = pd.read_excel(path, header=None)
 
-        # Función auxiliar para buscar valores por etiquetas
         def buscar_valor(etiqueta):
             for i, row in df.iterrows():
                 for j, cell in enumerate(row):
@@ -51,47 +53,34 @@ class RadioRiskApp:
                         return str(df.iloc[i, j + 1]).strip()
             return "-"
 
-        # --- Lógica para buscar MCS min y SAS max en BEAM METRICS ---
-        mcs_values = []
-        sas_values = []
-
+        mcs_values, sas_values = [], []
         en_beam_metrics = False
-        for i, row in df.iterrows():
-            celda_principal = str(row[0]).strip()
 
-            # Detectamos cuando empieza la sección de Beams
-            if celda_principal == "BEAM METRICS":
+        for i, row in df.iterrows():
+            if str(row[0]).strip() == "BEAM METRICS":
                 en_beam_metrics = True
                 continue
-
             if en_beam_metrics:
-                # El Excel tiene el nombre de la métrica en una columna y el valor en otra
-                # Según tu archivo, la métrica está en la columna index 2 y el valor en la 3
                 metrica = str(row[2]).strip()
-                valor_str = str(row[3]).replace(',', '.')  # Cambiar coma decimal por punto
-
+                valor_str = str(row[3]).replace(',', '.')
                 try:
                     valor_num = float(valor_str)
                     if metrica == "MCS":
                         mcs_values.append(valor_num)
                     elif metrica == "SAS":
                         sas_values.append(valor_num)
-                except ValueError:
-                    # Ignoramos filas que no tengan números (como encabezados internos)
+                except:
                     continue
 
-        # Calculamos extremos
         mcs_min = min(mcs_values) if mcs_values else "-"
         sas_max = max(sas_values) if sas_values else "-"
 
-        # Se guarda en el diccionario
+        # Guardamos en el diccionario (simplificado según tu petición)
         self.datos_paciente = {
             "Plan": buscar_valor("PLAN NAME"),
             "Nombre": buscar_valor("PATIENT NAME"),
             "ID": buscar_valor("PATIENT ID"),
             "Sexo": buscar_valor("PATIENT SEX"),
-            "Patologia": buscar_valor("PATHOLOGY"),
-            "Localizacion": buscar_valor("LOCATION"),
             "MCS": buscar_valor("MCS"),
             "SAS": buscar_valor("SAS"),
             "PMU": buscar_valor("PMU"),
@@ -99,101 +88,135 @@ class RadioRiskApp:
             "SASmax": str(sas_max)
         }
 
+    def actualizar_checkbox_ca(self, *args):
+        """Lógica para marcar el checkbox según la región anatómica seleccionada"""
+        region = self.entries["Region"].get()
+        regiones_con_ca = ["COLON/RECTO", "PULMON", "CERVIX/UTERO", "CYC"]
+
+        if region in regiones_con_ca:
+            self.entries["CA"].set(True)
+        else:
+            self.entries["CA"].set(False)
+
     def mostrar_detalles_paciente(self):
-        # Limpiar pantalla
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Label(self.root, text="Información del Paciente y Plan", font=("Arial", 12, "bold")).pack(pady=10)
+        # Contenedor para mantener relación de aspecto (Centrado)
+        self.main_container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo, bd=1, relief="flat")
+        self.main_container.place(relx=0.5, rely=0.5, anchor="center")
+        self.main_container.pack_propagate(False)
 
-        frame_info = tk.LabelFrame(self.root, text="Datos Extraídos", padx=20, pady=20)
-        frame_info.pack(padx=10, fill="both")
+        tk.Label(self.main_container, text="Información del Paciente y Plan", font=("Arial", 14, "bold")).pack(pady=10)
 
-        # ---------------------------------------------------------
-        # SECCIÓN PARA EDITAR OPCIONES DESPLEGABLES
-        # ---------------------------------------------------------
-        opciones_sexo = ["M", "F", "-"]
+        frame_info = tk.LabelFrame(self.main_container, text=" Datos Extraídos ", padx=15, pady=10)
+        frame_info.pack(padx=10, fill="both", expand=True)
 
-        opciones_patologia = [
-            "Próstata",
-            "Mama",
-            "Cabeza y Cuello",
-            "Pulmón",
-            "SNC",
-            "Ginecológico",
-            "-"  # Opción por defecto si no hay dato
+        # Listas de opciones
+        op_sexo = ["M", "F", "-"]
+        op_anatomica = ["MAMA", "COLON/RECTO", "PULMON", "PROSTATA", "CERVIX/UTERO", "ESOFAGO", "CYC", "PANCREAS",
+                        "VEJIGA", "ENCEFALO/SNC", "MIEMBROS", "OTROS"]
+        op_tecnica = ["3D", "IMRT", "VMAT", "SRS", "SBRT", "FIF"]
+
+        # --- LÓGICA DE DETECCIÓN AUTOMÁTICA ---
+        plan_name = self.datos_paciente.get("Plan", "").upper()
+        palabras_plan = plan_name.split()  # Divide el nombre por espacios
+
+        # 1. Técnica (Busca coincidencia en cualquier parte del nombre)
+        tecnica_defecto = "3D"
+        for t in op_tecnica:
+            if t in plan_name:
+                tecnica_defecto = t
+                break
+
+        # 2. Región (Busca la TERCERA palabra del nombre del plan)
+        region_defecto = "OTROS"
+        if len(palabras_plan) >= 3:
+            tercera_palabra = palabras_plan[2]  # El índice 2 es la tercera palabra
+            if tercera_palabra in op_anatomica:
+                region_defecto = tercera_palabra
+        # ---------------------------------------
+
+        # Variables de control
+        self.entries["Sexo"] = tk.StringVar(value=self.datos_paciente.get("Sexo", "-"))
+        self.entries["Region"] = tk.StringVar(value=region_defecto)
+        self.entries["Tecnica"] = tk.StringVar(value=tecnica_defecto)
+        self.entries["CA"] = tk.BooleanVar()
+
+        # Rastrear cambios en la región para el Checkbox automático
+        self.entries["Region"].trace_add("write", self.actualizar_checkbox_ca)
+
+        # Ejecutar la validación inicial del Checkbox (según la región detectada)
+        self.actualizar_checkbox_ca()
+
+        # Campos de solo lectura (Superiores)
+        campos_fijos = [
+            ("Plan Name", "Plan"), ("Patient Name", "Nombre"), ("Patient ID", "ID"),
+            ("MCS Promedio", "MCS"), ("SAS Promedio", "SAS"), ("PMU Promedio", "PMU"),
+            ("MCS Mínimo", "MCSmin"), ("SAS Máximo", "SASmax")
         ]
 
-        opciones_localizacion = [
-            "Pelvis",
-            "Tórax",
-            "Abdomen",
-            "Cráneo",
-            "Columna",
-            "-"
-        ]
-        # ---------------------------------------------------------
-
-        self.entries = {}
-
-        # Definimos los campos. El tercer valor indica el tipo:
-        # 'text' (solo lectura), 'entry' (editable), 'menu' (desplegable)
-        campos = [
-            ("Plan Name", "Plan", "text", None),
-            ("Patient Name", "Nombre", "text", None),
-            ("Patient ID", "ID", "text", None),
-            ("Sexo", "Sexo", "menu", opciones_sexo),
-            ("Patología", "Patologia", "menu", opciones_patologia),
-            ("Localización", "Localizacion", "menu", opciones_localizacion),
-            ("MCS Promedio", "MCS", "text", None),
-            ("SAS Promedio", "SAS", "text", None),
-            ("PMU Promedio", "PMU", "text", None),
-            ("MCS Mínimo", "MCSmin", "text", None),
-            ("SAS Máximo", "SASmax", "text", None)
-        ]
-
-        for label_text, key, tipo, opciones in campos:
+        for label_text, key in campos_fijos:
             row = tk.Frame(frame_info)
-            row.pack(fill="x", pady=2)
-            tk.Label(row, text=f"{label_text}:", width=15, anchor="w").pack(side="left")
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=f"{label_text}:", width=18, anchor="w", font=("Arial", 8)).pack(side="left")
+            ent = tk.Entry(row, font=("Arial", 8))
+            ent.insert(0, self.datos_paciente.get(key, "-"))
+            ent.config(state="readonly")
+            ent.pack(side="right", expand=True, fill="x")
 
-            valor_inicial = self.datos_paciente.get(key, "-")
+        #tk.Label(frame_info, text="Configuración Clínica", font=("Arial", 8, "italic"), fg="blue").pack(pady=5)
 
-            if tipo == "menu":
-                # Variable de control para el OptionMenu
-                var_menu = tk.StringVar(self.root)
-                # Si el valor del Excel está en las opciones, lo selecciona, si no usa "-"
-                if valor_inicial in opciones:
-                    var_menu.set(valor_inicial)
-                else:
-                    var_menu.set("-")
+        # Desplegables
+        for lab, key, ops in [("Sexo", "Sexo", op_sexo), ("Región Ant.", "Region", op_anatomica),
+                              ("Técnica", "Tecnica", op_tecnica)]:
+            row = tk.Frame(frame_info)
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=lab + ":", width=18, anchor="w", font=("Arial", 8, "bold")).pack(side="left")
+            tk.OptionMenu(row, self.entries[key], *ops).pack(side="right", expand=True, fill="x")
 
-                menu = tk.OptionMenu(row, var_menu, *opciones)
-                menu.pack(side="right", expand=True, fill="x")
-                self.entries[key] = var_menu  # Guardamos la variable, no el widget
+        # Checkbox Cambios Anatómicos
+        row_ca = tk.Frame(frame_info)
+        row_ca.pack(fill="x", pady=5)
+        tk.Checkbutton(row_ca, text="Presencia de cambios anatómicos", variable=self.entries["CA"],
+                       font=("Arial", 8)).pack(side="left")
 
-            else:
-                ent = tk.Entry(row)
-                ent.insert(0, valor_inicial)
-                ent.config(state="readonly")
-                ent.pack(side="right", expand=True, fill="x")
-                self.entries[key] = ent
-
-        # Botón Calcular (ya visible pero deshabilitado o habilitado según desees)
-        btn_calcular = tk.Button(self.root, text="Calcular Método QA", width=25, height=2,
-                                 state="normal", command=self.ejecutar_arbol_decision)
+        # Botones finales
+        btn_calcular = tk.Button(self.main_container, text="Calcular Método QA", width=25, height=2,
+                                 bg="#0078D7", fg="white", font=("Arial", 10, "bold"),
+                                 command=self.ejecutar_arbol_decision)
         btn_calcular.pack(pady=10)
-
-        tk.Button(self.root, text="Volver", command=self.create_main_menu).pack(pady=10)
+        tk.Button(self.main_container, text="Volver", command=self.create_main_menu).pack()
 
     def ejecutar_arbol_decision(self):
-        # Aquí recuperamos los datos finales (incluyendo los elegidos en los menús)
-        sexo_elegido = self.entries["Sexo"].get()
-        pat_elegida = self.entries["Patologia"].get()
-        loc_elegida = self.entries["Localizacion"].get()
+        # Aquí recolectamos TODAS las variables para el árbol
+        datos_finales = {
+            "MCSmin": self.datos_paciente.get("MCSmin"),
+            "SASmax": self.datos_paciente.get("SASmax"),
+            "Tecnica": self.entries["Tecnica"].get(),
+            "Region": self.entries["Region"].get(),
+            "CambiosAnatomicos": self.entries["CA"].get(),
+            "Sexo": self.entries["Sexo"].get()
+        }
 
-        messagebox.showinfo("Procesando", f"Evaluando riesgo para {pat_elegida} en {loc_elegida}...")
-        # Aquí irá tu lógica de árbol de decisión...
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+        result_container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
+        result_container.place(relx=0.5, rely=0.5, anchor="center")
+        result_container.pack_propagate(False)
+
+        tk.Label(result_container, text="Evaluación de Riesgo", font=("Arial", 14, "bold")).pack(pady=20)
+
+        # Ejemplo de cómo usar los datos en la lógica:
+        info_text = f"Técnica: {datos_finales['Tecnica']}\nRegión: {datos_finales['Region']}\n"
+        info_text += f"¿Cambios Anatómicos?: {'SÍ' if datos_finales['CambiosAnatomicos'] else 'NO'}"
+
+        tk.Label(result_container, text=info_text, justify="left", font=("Arial", 10)).pack(pady=20)
+
+        # [AQUÍ IRÁ TU ÁRBOL DE DECISIÓN]
+
+        tk.Button(result_container, text="Volver", command=self.mostrar_detalles_paciente).pack(pady=20)
 
 
 if __name__ == "__main__":
