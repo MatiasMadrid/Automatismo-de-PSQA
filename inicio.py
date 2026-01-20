@@ -16,6 +16,7 @@ class RadioRiskApp:
 
         self.datos_paciente = {}
         self.entries = {}  # Aquí guardaremos las variables (StringVar, BooleanVar, etc.)
+        self.tecnicas_fallidas = []
         self.create_main_menu()
 
     def create_main_menu(self):
@@ -38,6 +39,7 @@ class RadioRiskApp:
         )
         if filepath:
             try:
+                self.tecnicas_fallidas = []
                 self.extraer_datos(filepath)
                 self.mostrar_detalles_paciente()
             except Exception as e:
@@ -53,9 +55,9 @@ class RadioRiskApp:
                         return str(df.iloc[i, j + 1]).strip()
             return "-"
 
+        # --- Extracción de métricas de haces ---
         mcs_values, sas_values = [], []
         en_beam_metrics = False
-
         for i, row in df.iterrows():
             if str(row[0]).strip() == "BEAM METRICS":
                 en_beam_metrics = True
@@ -75,12 +77,13 @@ class RadioRiskApp:
         mcs_min = min(mcs_values) if mcs_values else "-"
         sas_max = max(sas_values) if sas_values else "-"
 
-        # Guardamos en el diccionario (simplificado según tu petición)
+        # Se guarda en el dicionario
         self.datos_paciente = {
             "Plan": buscar_valor("PLAN NAME"),
             "Nombre": buscar_valor("PATIENT NAME"),
             "ID": buscar_valor("PATIENT ID"),
             "Sexo": buscar_valor("PATIENT SEX"),
+            "Fractions": buscar_valor("FRACTIONS"),
             "MCS": buscar_valor("MCS"),
             "SAS": buscar_valor("SAS"),
             "PMU": buscar_valor("PMU"),
@@ -101,6 +104,8 @@ class RadioRiskApp:
     def mostrar_detalles_paciente(self):
         for widget in self.root.winfo_children():
             widget.destroy()
+
+        self.tecnicas_fallidas = [] #reinicio la lista QA
 
         # Contenedor para mantener relación de aspecto (Centrado)
         self.main_container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo, bd=1, relief="flat")
@@ -142,6 +147,7 @@ class RadioRiskApp:
         self.entries["Region"] = tk.StringVar(value=region_defecto)
         self.entries["Tecnica"] = tk.StringVar(value=tecnica_defecto)
         self.entries["CA"] = tk.BooleanVar()
+        self.entries["PPed"] = tk.BooleanVar()
 
         # Rastrear cambios en la región para el Checkbox automático
         self.entries["Region"].trace_add("write", self.actualizar_checkbox_ca)
@@ -181,6 +187,11 @@ class RadioRiskApp:
         tk.Checkbutton(row_ca, text="Presencia de cambios anatómicos", variable=self.entries["CA"],
                        font=("Arial", 8)).pack(side="left")
 
+        # Checkbox Paciente Pediátrico
+        row_ca = tk.Frame(frame_info)
+        row_ca.pack(fill="x", pady=5)
+        tk.Checkbutton(row_ca, text="Paciente Pediátrico", variable=self.entries["PPed"],
+                       font=("Arial", 8)).pack(side="left")
         # Botones finales
         btn_calcular = tk.Button(self.main_container, text="Calcular Método QA", width=25, height=2,
                                  bg="#0078D7", fg="white", font=("Arial", 10, "bold"),
@@ -188,35 +199,157 @@ class RadioRiskApp:
         btn_calcular.pack(pady=10)
         tk.Button(self.main_container, text="Volver", command=self.create_main_menu).pack()
 
-    def ejecutar_arbol_decision(self):
-        # Aquí recolectamos TODAS las variables para el árbol
-        datos_finales = {
-            "MCSmin": self.datos_paciente.get("MCSmin"),
-            "SASmax": self.datos_paciente.get("SASmax"),
-            "Tecnica": self.entries["Tecnica"].get(),
-            "Region": self.entries["Region"].get(),
-            "CambiosAnatomicos": self.entries["CA"].get(),
-            "Sexo": self.entries["Sexo"].get()
-        }
+    def procesar_arbol_casos(self, datos):
+        """Implementación de los 3 Casos y sus escenarios específicos"""
+        tecnica = datos["Tecnica"]
+        lista_base = []
 
+        # --- CASO 1: 3D / FIF ---
+        if tecnica in ["3D", "FIF"]:
+            lista_base = ["Plancheck", "Calculo independiente", "LogFile"]
+
+            if datos["CambiosAnatomicos"]:
+                if "Transit-EPID" not in lista_base: lista_base.append("Transit-EPID")
+            if datos["PacientePediatrico"]:
+                if "Transit-EPID" not in lista_base: lista_base.append("Transit-EPID")
+
+        # --- CASO 2: SRS / SBRT ---
+        elif tecnica in ["SRS", "SBRT"]:
+            lista_base = ["Plancheck", "Portal Dosimetry"]
+
+            if datos["CambiosAnatomicos"]:
+                if "Transit-EPID" not in lista_base: lista_base.append("Transit-EPID")
+            if datos["PacientePediatrico"]:
+                if "Transit-EPID" not in lista_base: lista_base.append("Transit-EPID")
+
+        # --- CASO 3: IMRT / VMAT ---
+        elif tecnica in ["IMRT", "VMAT"]:
+            lista_base = ["Plancheck", "Calculo independiente", "LogFile"]
+
+            # Variables numéricas para validación
+            try:
+                mcs = float(datos["MCSmin"])
+                sas = float(datos["SASmax"])
+                pmu = float(datos["PMU"])
+                frac = int(datos["Fractions"])
+            except:
+                mcs, sas, pmu, frac = 0.5, 0.5, 1000, 3
+
+            # Escenario 3.2: Índices Altos (Complejidad)
+            if mcs < 0.5 and sas > 0.5 and pmu > 1000:
+                if "Portal Dosimetry" not in lista_base: lista_base.append("Portal Dosimetry")
+
+            # Escenario 3.4: Hipofraccionado (> 3 fracciones)
+            if frac > 3:
+                if "Portal Dosimetry" not in lista_base: lista_base.append("Portal Dosimetry")
+
+            # Escenario 3.5: Cambios Anatómicos
+            if datos["CambiosAnatomicos"]:
+                if "Transit-EPID" not in lista_base: lista_base.append("Transit-EPID")
+
+            if datos["PacientePediatrico"]:
+                if "Transit-EPID" not in lista_base: lista_base.append("Transit-EPID")
+
+            # Escenario 3.3: Monofraccionado (Fracciones = 1) -> No agrega nada (se queda base)
+            # Escenario 3.1: Índices Bajos -> No agrega nada (se queda base)
+
+        # 1. Eliminar técnicas que ya fallaron
+        lista_final = [t for t in lista_base if t not in self.tecnicas_fallidas]
+
+        # 2. Agregar refuerzos si hubo fallos previos (según reglas de "si no pasa")
+        for fallida in self.tecnicas_fallidas:
+            # Caso 2: Refuerzo específico
+            if tecnica in ["SRS", "SBRT"] and fallida in lista_base:
+                if "Stereophan + Gafchromic/CI" not in lista_final:
+                    lista_final.append("Stereophan + Gafchromic/CI")
+
+            # Caso 3: Refuerzo para escenarios 3.2 y 3.4
+            if tecnica in ["IMRT", "VMAT"] and fallida in lista_base:
+                # Solo si era complejo o hipofraccionado
+                if (mcs < 0.5 and sas > 0.5 and pmu > 1000) or (frac > 3):
+                    if "ArcCheck" not in lista_final: lista_final.append("ArcCheck")
+                    if "3DVH" not in lista_final: lista_final.append("3DVH")
+
+        return lista_final
+
+    def ejecutar_arbol_decision(self):
+        # Limpiar pantalla
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        result_container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
-        result_container.place(relx=0.5, rely=0.5, anchor="center")
-        result_container.pack_propagate(False)
+        res_container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
+        res_container.place(relx=0.5, rely=0.5, anchor="center")
+        res_container.pack_propagate(False)
 
-        tk.Label(result_container, text="Evaluación de Riesgo", font=("Arial", 14, "bold")).pack(pady=20)
+        # Recolección de datos
+        datos_actuales = {
+            "Tecnica": self.entries["Tecnica"].get(),
+            "Region": self.entries["Region"].get(),
+            "CambiosAnatomicos": self.entries["CA"].get(),
+            "PacientePediatrico": self.entries["PPed"].get(),
+            "MCSmin": self.datos_paciente.get("MCSmin", "0.5"),
+            "SASmax": self.datos_paciente.get("SASmax", "0.5"),
+            "PMU": self.datos_paciente.get("PMU", "1000"),
+            "Fractions": self.datos_paciente.get("Fractions", "1")
+        }
 
-        # Ejemplo de cómo usar los datos en la lógica:
-        info_text = f"Técnica: {datos_finales['Tecnica']}\nRegión: {datos_finales['Region']}\n"
-        info_text += f"¿Cambios Anatómicos?: {'SÍ' if datos_finales['CambiosAnatomicos'] else 'NO'}"
+        # Obtener lista de méritos procesada
+        recomendaciones = self.procesar_arbol_casos(datos_actuales)
 
-        tk.Label(result_container, text=info_text, justify="left", font=("Arial", 10)).pack(pady=20)
+        tk.Label(res_container, text="EVALUACIÓN DE RIESGO QADS", font=("Arial", 14, "bold")).pack(pady=10)
 
-        # [AQUÍ IRÁ TU ÁRBOL DE DECISIÓN]
+        # Cuadro informativo de contexto
+        info_frame = tk.Frame(res_container, bg="#f9f9f9", padx=10, pady=5)
+        info_frame.pack(fill="x", padx=20)
+        txt_contexto = f"Caso detectado: {datos_actuales['Tecnica']}\n" \
+                       f"Métricas: MCS {datos_actuales['MCSmin']} | SAS {datos_actuales['SASmax']} | PMU {datos_actuales['PMU']}\n" \
+                       f"Fracciones: {datos_actuales['Fractions']} | Cambios Anat: {'SÍ' if datos_actuales['CambiosAnatomicos'] else 'NO'}\n" \
+                       f"Pac. Pediátrico: {'SÍ' if datos_actuales['PacientePediatrico'] else 'NO'}"
 
-        tk.Button(result_container, text="Volver", command=self.mostrar_detalles_paciente).pack(pady=20)
+        tk.Label(info_frame, text=txt_contexto, font=("Arial", 8), bg="#f9f9f9", justify="left").pack()
+
+        # Selección de técnica
+        tk.Label(res_container, text="Seleccione Técnica Realizada:", font=("Arial", 10, "bold")).pack(pady=10)
+
+        self.qa_seleccionada = tk.StringVar()
+        if recomendaciones:
+            self.qa_seleccionada.set(recomendaciones[0])
+            for metodo in recomendaciones:
+                tk.Radiobutton(res_container, text=metodo, variable=self.qa_seleccionada,
+                               value=metodo, font=("Arial", 9)).pack(anchor="w", padx=50)
+        else:
+            tk.Label(res_container, text="No hay más técnicas disponibles.", fg="red").pack()
+
+        # Feedback de éxito
+        tk.Label(res_container, text="¿Resultado del Control?", font=("Arial", 10, "bold")).pack(pady=10)
+        self.resultado_qa = tk.StringVar(value="Exitoso")
+        op_res = tk.OptionMenu(res_container, self.resultado_qa, "Exitoso", "No Exitoso")
+        op_res.config(width=15)
+        op_res.pack()
+
+        # Botones
+        btn_frame = tk.Frame(res_container)
+        btn_frame.pack(side="bottom", pady=20)
+
+        tk.Button(btn_frame, text="Registrar", bg="#4CAF50", fg="white", width=12,
+                  command=self.validar_resultado_qa).pack(side="left", padx=5)
+
+        self.btn_excel = tk.Button(btn_frame, text="Informe Excel", state="disabled", width=12)
+        self.btn_excel.pack(side="left", padx=5)
+
+        tk.Button(btn_frame, text="Volver", command=self.mostrar_detalles_paciente, width=12).pack(side="left", padx=5)
+
+    def validar_resultado_qa(self):
+        if self.resultado_qa.get() == "No Exitoso":
+            fallida = self.qa_seleccionada.get()
+            if fallida not in self.tecnicas_fallidas:
+                self.tecnicas_fallidas.append(fallida)
+
+            messagebox.showwarning("Actualización de Árbol", f"QA {fallida} fallido. Se actualizan recomendaciones.")
+            self.ejecutar_arbol_decision()
+        else:
+            messagebox.showinfo("Éxito", "Control validado correctamente.")
+            self.btn_excel.config(state="normal", bg="#0078D7", fg="white")
 
 
 if __name__ == "__main__":
