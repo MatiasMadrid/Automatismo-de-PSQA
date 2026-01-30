@@ -26,7 +26,7 @@ class RadioRiskApp:
         self.archivo_umbrales = os.path.join(self.base_dir, "umbrales.txt")
         self.ruta_costos = os.path.join(self.base_dir, "costos.xlsx")
 
-        # Intentar cargar ruta guardada, si no, usar la local por defecto
+        # Intenta cargar ruta guardada, si no, usar la local por defecto
         self.ruta_informe = self.cargar_ruta_persistente()
 
         self.datos_paciente = {}
@@ -41,6 +41,7 @@ class RadioRiskApp:
         self.create_main_menu()
 
     def cargar_umbrales(self):
+        """Lee y levanta los umbrales del archivio txt"""
         if os.path.exists(self.archivo_umbrales):
             try:
                 with open(self.archivo_umbrales, "r") as f:
@@ -55,11 +56,13 @@ class RadioRiskApp:
                 pass
 
     def guardar_umbrales_archivo(self, mcs, sas, dpf, mcs_min, sas_max, pmu):
+        """Guarda los umbrales del archivo txt"""
         with open(self.archivo_umbrales, "w") as f:
             f.write(f"{mcs}\n{sas}\n{dpf}\n{mcs_min}\n{sas_max}\n{pmu}")
         self.u_mcs, self.u_sas, self.u_dpf, self.u_mcs_min, self.u_sas_max, self.u_pmu = mcs, sas, dpf, mcs_min, sas_max, pmu
 
     def validar_y_guardar_umbrales(self):
+        """Garantiza que los umbrales se guarden en el formato correcto"""
         try:
             mcs = float(self.tmp_mcs.get().replace(',', '.'))
             sas = float(self.tmp_sas.get().replace(',', '.'))
@@ -75,6 +78,7 @@ class RadioRiskApp:
             messagebox.showerror("Error", "Por favor, ingrese solo números válidos.")
 
     def cargar_ruta_persistente(self):
+        """Intenta verificar si la ruta del registro existe y la carga"""
         # 1. Intentar leer desde config_ruta.txt
         if os.path.exists(self.archivo_config):
             with open(self.archivo_config, "r") as f:
@@ -90,11 +94,13 @@ class RadioRiskApp:
         return None
 
     def guardar_ruta_persistente(self, ruta):
+        """Guarda la ruta del archivo de registro"""
         with open(self.archivo_config, "w") as f:
             f.write(ruta)
         self.ruta_informe = ruta
 
     def create_main_menu(self):
+        """Menú principal"""
         for widget in self.root.winfo_children(): widget.destroy()
         menu_container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
         menu_container.place(relx=0.5, rely=0.5, anchor="center")
@@ -113,6 +119,7 @@ class RadioRiskApp:
             side="bottom", pady=20)
 
     def create_config_menu(self):
+        """Menú de configuración"""
         for widget in self.root.winfo_children(): widget.destroy()
         c = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
         c.place(relx=0.5, rely=0.5, anchor="center")
@@ -124,13 +131,14 @@ class RadioRiskApp:
         tk.Button(c, text="Crear Nuevo Registro", width=30, height=2, bg="#E1E1E1",
                   command=self.crear_nuevo_registro).pack(pady=5)
         tk.Button(c, text="Configurar Umbrales", width=30, height=2, bg="#E1E1E1",
-                  command=self.create_thresholds_menu).pack(pady=5)
+                  command=self.create_umbrales_menu).pack(pady=5)
         tk.Button(c, text="Configurar Costos", width=30, height=2, bg="#E1E1E1", command=self.abrir_excel_costos).pack(
             pady=5)
         tk.Button(c, text="Volver al Menú Principal", bg="#FFCCCB", command=self.create_main_menu).pack(side="bottom",
                                                                                                         pady=30)
 
-    def create_thresholds_menu(self):
+    def create_umbrales_menu(self):
+        """Menú de configuración de umbrales"""
         for widget in self.root.winfo_children(): widget.destroy()
         container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
         container.place(relx=0.5, rely=0.5, anchor="center")
@@ -170,6 +178,7 @@ class RadioRiskApp:
         tk.Button(btn_frame, text="Volver", font=("Arial", 10), width=15, command=self.create_config_menu).pack(pady=5)
 
     def seleccionar_registro_existente(self):
+        """Cambia la ruta del informe de registros"""
         ruta = filedialog.askopenfilename(title="Seleccione el archivo de Registro Histórico",
                                           filetypes=[("Excel files", "*.xlsx")])
         if ruta:
@@ -178,6 +187,7 @@ class RadioRiskApp:
             self.create_main_menu()
 
     def crear_nuevo_registro(self):
+        """Crea un nuevo registro y guarda la ruta"""
         nueva_ruta = filedialog.asksaveasfilename(title="Nuevo Registro Histórico", defaultextension=".xlsx",
                                                   filetypes=[("Excel files", "*.xlsx")],
                                                   initialfile="Registro_Historico_2026.xlsx")
@@ -187,6 +197,7 @@ class RadioRiskApp:
             self.create_main_menu()
 
     def abrir_excel_costos(self):
+        """Abre el archivo excel de costos"""
         if os.path.exists(self.ruta_costos):
             try:
                 os.startfile(self.ruta_costos)
@@ -197,6 +208,7 @@ class RadioRiskApp:
             messagebox.showerror("Error", f"No se encontró el archivo 'costos.xlsx' en:\n{self.base_dir}")
 
     def abrir_excel_registros(self):
+        """Abre el archivo excel de registros"""
         if self.ruta_informe and os.path.exists(self.ruta_informe):
             try:
                 os.startfile(self.ruta_informe)
@@ -207,6 +219,7 @@ class RadioRiskApp:
                                    "No hay un archivo de registro creado todavía o no se ha seleccionado ninguno.")
 
     def cargar_archivo(self):
+        """Se encarga de cargar un paciente"""
         filepath = filedialog.askopenfilename(title="Seleccionar reporte", filetypes=[("Excel files", "*.xlsx *.xls")])
         if filepath:
             try:
@@ -218,6 +231,7 @@ class RadioRiskApp:
                 messagebox.showerror("Error", f"Error al leer el archivo: {e}")
 
     def extraer_datos(self, path):
+        """Función secuandaria para extraer los datos del paciente"""
         df = pd.read_excel(path, header=None)
 
         def buscar_valor(etiqueta):
@@ -258,11 +272,13 @@ class RadioRiskApp:
         }
 
     def actualizar_checkbox_ca(self, *args):
+        """Se tilda automaticamente las regiones correspondintes a cambios anatómicos"""
         region = self.entries["Region"].get()
         regiones_con_ca = ["COLON/RECTO", "PULMON", "CERVIX/UTERO", "CYC"]
         self.entries["CA"].set(region in regiones_con_ca)
 
     def mostrar_detalles_paciente(self):
+        """Muestra la información del paciente"""
         for widget in self.root.winfo_children(): widget.destroy()
         container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
         container.place(relx=0.5, rely=0.5, anchor="center")
@@ -291,17 +307,17 @@ class RadioRiskApp:
                   ("SAS Prom.", "SAS"), ("PMU", "PMU"), ("MCS Mínimo", "MCSmin"), ("SAS Máximo", "SASmax"),
                   ("Fracciones", "Fractions"), ("dpf [cGy]", "dpf")]
         for label, key in campos:
-            row = tk.Frame(frame_info);
+            row = tk.Frame(frame_info)
             row.pack(fill="x", pady=1)
             tk.Label(row, text=label, width=15, anchor="w", font=("Arial", 9)).pack(side="left")
-            e = tk.Entry(row, font=("Arial", 9));
+            e = tk.Entry(row, font=("Arial", 9))
             e.insert(0, self.datos_paciente.get(key, "-"))
-            e.config(state="readonly");
+            e.config(state="readonly")
             e.pack(side="right", fill="x", expand=True)
 
         for lab, key, ops in [("Sexo", "Sexo", op_sexo), ("Región", "Region", op_anatomica),
                               ("Técnica", "Tecnica", op_tecnica)]:
-            row = tk.Frame(frame_info);
+            row = tk.Frame(frame_info)
             row.pack(fill="x", pady=2)
             tk.Label(row, text=lab, width=15, anchor="w", font=("Arial", 9, "bold")).pack(side="left")
             tk.OptionMenu(row, self.entries[key], *ops).pack(side="right", fill="x", expand=True)
@@ -313,6 +329,7 @@ class RadioRiskApp:
         tk.Button(container, text="Volver", command=self.create_main_menu).pack()
 
     def es_plan_complejo(self):
+        """Función auxiliar usada para saber si el plan es complejo en caso de IMRT/VMAT"""
         if self.entries["Tecnica"].get() not in ["IMRT", "VMAT"]: return False
 
         def limpiar(v, d):
@@ -333,6 +350,7 @@ class RadioRiskApp:
         return any(condiciones)
 
     def obtener_paquete_qa(self):
+        """Devuelve las técnicas de QA en formato texto"""
         tecnica = self.entries["Tecnica"].get()
         ca_ped = self.entries["CA"].get() or self.entries["PPed"].get()
         complejo = self.es_plan_complejo()
@@ -352,9 +370,10 @@ class RadioRiskApp:
         return "Indefinido"
 
     def ejecutar_arbol_decision(self):
+        """Menú de control de la ejecución de los planes QA"""
         for widget in self.root.winfo_children(): widget.destroy()
         container = tk.Frame(self.root, width=self.ancho_fijo, height=self.alto_fijo)
-        container.place(relx=0.5, rely=0.5, anchor="center");
+        container.place(relx=0.5, rely=0.5, anchor="center")
         container.pack_propagate(False)
 
         paquete = self.obtener_paquete_qa()
@@ -375,12 +394,14 @@ class RadioRiskApp:
             side="bottom", pady=40)
 
     def regresar_inicio(self):
-        self.intento_actual = 1;
-        self.historial_intentos = {};
+        """Limpia las variables y vuelve al menpu ppal."""
+        self.intento_actual = 1
+        self.historial_intentos = {}
         self.datos_paciente = {}
         self.create_main_menu()
 
     def validar_intento(self):
+        """Logica de control de los planes, deshabilita/habilita botones, envía mensajes de aviso"""
         resultado = self.resultado_var.get()
         tecnica = self.entries["Tecnica"].get()
         self.historial_intentos[self.intento_actual] = {"paquete": self.paquete_actual_str, "resultado": resultado}
@@ -402,6 +423,7 @@ class RadioRiskApp:
                 self.ejecutar_arbol_decision()
 
     def obtener_costo_acumulado(self):
+        """Calcula el costo asociado a los planes de QA utilizados"""
         if not os.path.exists(self.ruta_costos): return 0.0
         try:
             df_costos = pd.read_excel(self.ruta_costos)
@@ -416,6 +438,7 @@ class RadioRiskApp:
             return 0.0
 
     def exportar_informe(self):
+        """Registra al paciente (con los controles realizados) en el archivo"""
         if not self.ruta_informe:
             messagebox.showwarning("Atención", "No hay una ruta definida.")
             self.seleccionar_registro_existente()
@@ -453,7 +476,8 @@ class RadioRiskApp:
             messagebox.showerror("Error", f"Error al guardar: {e}")
 
     def aplicar_formato_excel(self, ruta):
-        wb = load_workbook(ruta);
+        """"Función destinada a generar el formato en el decomento"""
+        wb = load_workbook(ruta)
         ws = wb.active
         relleno = PatternFill(start_color="ADD8E6", end_color="ADD8E6", fill_type="solid")
         borde = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'),
@@ -477,13 +501,14 @@ class RadioRiskApp:
         wb.save(ruta)
 
     def popup_silencioso(self, titulo, mensaje):
-        vent = tk.Toplevel(self.root);
-        vent.title(titulo);
+        """destinada a generar avisos emergentes sin sonido"""
+        vent = tk.Toplevel(self.root)
+        vent.title(titulo)
         vent.geometry("300x150")
-        vent.resizable(False, False);
-        vent.transient(self.root);
+        vent.resizable(False, False)
+        vent.transient(self.root)
         vent.grab_set()
-        x = self.root.winfo_x() + 90;
+        x = self.root.winfo_x() + 90
         y = self.root.winfo_y() + 200
         vent.geometry(f"+{x}+{y}")
         tk.Label(vent, text=mensaje, wraplength=250, pady=20).pack()
@@ -491,6 +516,6 @@ class RadioRiskApp:
 
 
 if __name__ == "__main__":
-    root = tk.Tk();
-    app = RadioRiskApp(root);
+    root = tk.Tk()
+    app = RadioRiskApp(root)
     root.mainloop()
