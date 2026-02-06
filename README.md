@@ -48,7 +48,7 @@ El sistema utiliza un algoritmo basado en lógica de decisión para clasificar l
 
 ![Diagrama del Árbol de Decisión](./img/Diagrama_árbol.png)
 
-> **Nota:** Las técnicas numeradas corresponden a los métodos de QA (1: Plancheck, 2: Cálculo Independiente, 3: Portal Dosimetry, etc.) según se define en el protocolo institucional, en la imagen se vé un error de tipeo en SRS/SRBT, al agrandar la imagen se soluciona.
+> **Nota:** Las técnicas numeradas corresponden a los métodos de QA (1: Plancheck, 2: Cálculo Independiente, 3: Portal Dosimetry, etc.) según se define en el protocolo institucional.
 
 ---
 
