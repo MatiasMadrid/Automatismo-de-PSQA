@@ -41,8 +41,17 @@ Desde el panel de **Configuración** se puede:
 * **Umbrales:** Ajustar los valores de corte para MCS, SAS (promedios y extremos) y PMU según el criterio clínico del servicio.
 * **Costos:** Abrir el archivo Excel para actualizar los valores monetarios de los procedimientos.
 * **Registros:** Vincular el programa a un archivo existente o crear uno nuevo para un período diferente.
+---
+
+## 🌳 Lógica del Árbol de Decisión
+El sistema utiliza un algoritmo basado en lógica de decisión para clasificar los planes según su complejidad técnica y factores clínicos. A continuación, se detalla el flujo de trabajo:
+
+![Diagrama del Árbol de Decisión](./img/Diagrama_árbol.png)
+
+> **Nota:** Las técnicas numeradas corresponden a los métodos de QA (1: Plancheck, 2: Cálculo Independiente, 3: Portal Dosimetry, etc.) según se define en el protocolo institucional.
 
 ---
+
 
 ## ⚠️ Requisitos para Windows 7 Ultimate
 Para asegurar la compatibilidad en terminales con Windows 7, verifique:
