@@ -49,6 +49,14 @@ Para asegurar la compatibilidad en terminales con Windows 7, verifique:
 * **Service Pack 1 (SP1)** instalado.
 * **Universal C Runtime (KB2999226)** instalado.
 * Arquitectura compatible (ejecutar versión de 32 bits si el sistema es x86).
+---
+
+## 🌳 Lógica del Árbol de Decisión
+El sistema utiliza un algoritmo basado en lógica de decisión para clasificar los planes según su complejidad técnica y factores clínicos. A continuación, se detalla el flujo de trabajo:
+
+![Diagrama del Árbol de Decisión](./img/Diagrama_árbol.png)
+
+> **Nota:** Las técnicas numeradas corresponden a los métodos de QA (1: Plancheck, 2: Cálculo Independiente, 3: Portal Dosimetry, etc.) según se define en el protocolo institucional.
 
 ---
 
